@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Грандшеф — калькулятор маржи</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  input[type="range"] { -webkit-appearance: none; appearance: none; height: 6px; background: #e5e7eb; border-radius: 3px; }
+  input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #111827; cursor: pointer; }
+  input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #111827; cursor: pointer; border: none; }
+  .num { font-variant-numeric: tabular-nums; }
+  details > summary { list-style: none; cursor: pointer; }
+  details > summary::-webkit-details-marker { display: none; }
+  .winner { box-shadow: 0 0 0 2px #16a34a inset; }
+</style>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen">
+
+<div class="max-w-7xl mx-auto p-4 md:p-8">
+
+  <header class="mb-6">
+    <h1 class="text-2xl md:text-3xl font-semibold tracking-tight">Грандшеф — взвешенная маржа по каналам</h1>
+    <p class="text-sm text-gray-500 mt-1">Доли продаж — факт мая 2026 (ВБ 35,24%, ОЗОН 55,76%, ЯМ 9%, Сайт 0%). Маркетинг распределяется по долям. Учитывается % выкупа.</p>
+  </header>
+
+  <!-- Глобальные параметры -->
+  <section class="mb-6 bg-white rounded-xl border border-gray-200 p-4">
+    <h2 class="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Глобальные параметры</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+
+      <div>
+        <div class="flex justify-between text-sm mb-1">
+          <span class="text-gray-600">Общий объём продаж (выкупленные), шт/мес</span>
+          <input type="text" inputmode="decimal" id="volumeNum" class="w-32 text-right border border-gray-200 rounded px-2 py-0.5 text-sm num" value="1 000">
+        </div>
+        <input type="range" id="volumeRange" class="w-full" min="100" max="3000" step="10" value="1000">
+      </div>
+
+      <div>
+        <div class="flex justify-between text-sm mb-1">
+          <span class="text-gray-600">Маркетинговый бюджет, ₽/мес</span>
+          <input type="text" inputmode="decimal" id="budgetNum" class="w-40 text-right border border-gray-200 rounded px-2 py-0.5 text-sm num" value="6 000 000">
+        </div>
+        <input type="range" id="budgetRange" class="w-full" min="0" max="15000000" step="50000" value="6000000">
+      </div>
+
+      <div>
+        <div class="flex justify-between text-sm mb-1">
+          <span class="text-gray-600">Себестоимость, ₽/шт</span>
+          <input type="text" inputmode="decimal" id="costNum" class="w-32 text-right border border-gray-200 rounded px-2 py-0.5 text-sm num" value="11 200">
+        </div>
+        <input type="range" id="costRange" class="w-full" min="5000" max="25000" step="50" value="11200">
+      </div>
+
+      <div>
+        <div class="flex justify-between text-sm mb-1">
+          <span class="text-gray-600">Постоянные расходы, ₽/мес</span>
+          <input type="text" inputmode="decimal" id="fixedNum" class="w-40 text-right border border-gray-200 rounded px-2 py-0.5 text-sm num" value="0">
+        </div>
+        <input type="range" id="fixedRange" class="w-full" min="0" max="5000000" step="10000" value="0">
+      </div>
+
+      <div class="md:col-span-2 mt-2 pt-3 border-t border-gray-100">
+        <div class="flex justify-between items-center text-sm">
+          <span class="text-gray-700 font-medium">Общие расходы (маркетинг + постоянные), ₽/мес</span>
+          <input type="text" id="totalExpensesNum" readonly class="w-40 text-right border border-gray-200 bg-gray-50 rounded px-2 py-0.5 text-sm num font-semibold text-gray-700 cursor-not-allowed" value="6 000 000">
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Сводный результат -->
+  <section class="mb-6 grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div class="bg-green-50 border border-green-200 rounded-xl p-4">
+      <div class="text-xs uppercase tracking-wide text-green-700">Чистая прибыль, ₽/мес</div>
+      <div id="totalNet" class="mt-1 text-2xl font-semibold num text-green-800"></div>
+      <div id="totalNetSub" class="text-xs text-green-700 num mt-1"></div>
+    </div>
+    <div class="bg-white border border-gray-200 rounded-xl p-4">
+      <div class="text-xs uppercase tracking-wide text-gray-500">Маржа, ₽/мес</div>
+      <div id="totalMargin" class="mt-1 text-2xl font-semibold num"></div>
+      <div class="text-xs text-gray-500 mt-1">До маркетинга и постоянных</div>
+    </div>
+    <div class="bg-white border border-gray-200 rounded-xl p-4">
+      <div class="text-xs uppercase tracking-wide text-gray-500">Средневзвешенная маржа</div>
+      <div id="totalMarginPct" class="mt-1 text-2xl font-semibold num"></div>
+      <div class="text-xs text-gray-500 mt-1">Маржа ÷ Выручка с СПП</div>
+    </div>
+    <div class="bg-white border border-gray-200 rounded-xl p-4">
+      <div class="text-xs uppercase tracking-wide text-gray-500">ROMI</div>
+      <div id="totalRomi" class="mt-1 text-2xl font-semibold num"></div>
+      <div class="text-xs text-gray-500 mt-1">Маржа ÷ Маркетинг</div>
+    </div>
+  </section>
+
+  <!-- Топ-сценарий по каналам -->
+  <section class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-3">
+    <div class="bg-white rounded-xl p-4 border border-gray-200">
+      <div class="text-xs uppercase tracking-wide text-gray-500">Лидер по чистой прибыли канала</div>
+      <div class="mt-2 flex items-end gap-3">
+        <div id="bestNetName" class="text-xl font-semibold"></div>
+        <div id="bestNetValue" class="text-sm text-gray-600 num"></div>
+      </div>
+      <div class="text-xs text-gray-400 mt-1">С учётом доли продаж и маркетинга</div>
+    </div>
+    <div class="bg-white rounded-xl p-4 border border-gray-200">
+      <div class="text-xs uppercase tracking-wide text-gray-500">Лидер по марже с единицы</div>
+      <div class="mt-2 flex items-end gap-3">
+        <div id="bestUnitName" class="text-xl font-semibold"></div>
+        <div id="bestUnitValue" class="text-sm text-gray-600 num"></div>
+      </div>
+      <div class="text-xs text-gray-400 mt-1">С учётом выкупа</div>
+    </div>
+    <div class="bg-white rounded-xl p-4 border border-gray-200">
+      <div class="text-xs uppercase tracking-wide text-gray-500">Лидер по марже %</div>
+      <div class="mt-2 flex items-end gap-3">
+        <div id="bestPctName" class="text-xl font-semibold"></div>
+        <div id="bestPctValue" class="text-sm text-gray-600 num"></div>
+      </div>
+      <div class="text-xs text-gray-400 mt-1">Рентабельность сделки</div>
+    </div>
+  </section>
+
+  <!-- Сумма долей предупреждение -->
+  <div id="shareWarn" class="hidden mb-4 px-4 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm"></div>
+
+  <!-- Карточки каналов -->
+  <section id="cards" class="grid grid-cols-1 md:grid-cols-2 gap-4"></section>
+
+  <!-- Сводная таблица -->
+  <section class="mt-8 bg-white rounded-xl border border-gray-200 overflow-x-auto">
+    <table class="w-full text-sm num">
+      <thead class="bg-gray-50 text-gray-600">
+        <tr>
+          <th class="text-left p-3 font-medium">Показатель</th>
+          <th class="text-right p-3 font-medium">ВБ</th>
+          <th class="text-right p-3 font-medium">ОЗОН</th>
+          <th class="text-right p-3 font-medium">ЯМ</th>
+          <th class="text-right p-3 font-medium">Сайт</th>
+          <th class="text-right p-3 font-medium bg-gray-100">Итого</th>
+        </tr>
+      </thead>
+      <tbody id="summary"></tbody>
+    </table>
+  </section>
+
+  <footer class="mt-8 text-xs text-gray-400 space-y-1">
+    <p>Маржа на ед. (база) = Цена до СПП − Себес − (Комиссия + Логистика + ДРР) − Хранение + Премия за СПП.</p>
+    <p>В логистике уже заложены возвраты при базовом % выкупа (ВБ 88, ОЗОН 92, ЯМ 90, Сайт 100). При изменении выкупа считается только дельта: Δ = 2 × Логистика × ((1−выкуп)/выкуп − (1−база)/база).</p>
+    <p>Чистая прибыль = Σ маржа каналов − Маркетинг − Постоянные расходы.</p>
+    <button id="reset" class="mt-2 underline hover:text-gray-600">Сбросить к дефолтным значениям</button>
+  </footer>
+
+</div>
+
+<script>
+// ===== Исходные данные =====
+const DEFAULTS = {
+  wb:   { name: "Wildberries",   share: 35.24, priceBefore: 41000, sppPct: 28.4,  commissionPct: 26.5, logistics: 3200, drrPct: 2.0,  storage: 1077, sppBonus: 779, buyoutPct: 88,  buyoutBase: 88 },
+  ozon: { name: "Ozon",          share: 55.76, priceBefore: 47000, sppPct: 41.0,  commissionPct: 42.0, logistics: 850,  drrPct: 2.0,  storage: 0,    sppBonus: 0,   buyoutPct: 92,  buyoutBase: 92 },
+  ym:   { name: "Яндекс Маркет", share: 9.0,   priceBefore: 43000, sppPct: 34.12, commissionPct: 39.0, logistics: 1850, drrPct: 2.74, storage: 0,    sppBonus: 0,   buyoutPct: 90,  buyoutBase: 90 },
+  site: { name: "Свой сайт",     share: 0,     priceBefore: 29900, sppPct: 0,     commissionPct: 0,    logistics: 2200, drrPct: 16.72,storage: 0,    sppBonus: 0,   buyoutPct: 100, buyoutBase: 100 },
+};
+const GLOBALS_DEFAULT = { volume: 1000, budget: 6000000, cost: 11200, fixed: 0 };
+const channels = ["wb", "ozon", "ym", "site"];
+
+let state = JSON.parse(JSON.stringify(DEFAULTS));
+let globals = { ...GLOBALS_DEFAULT };
+
+// ===== Утилиты =====
+const fmt = (n) => Math.round(n).toLocaleString("ru-RU");
+const fmtPct = (n) => (Math.round(n * 100) / 100).toLocaleString("ru-RU", { maximumFractionDigits: 2 }) + " %";
+const fmtMoney = (n) => fmt(n) + " ₽";
+const fmtRomi = (r) => isFinite(r) ? (Math.round(r * 100) / 100).toLocaleString("ru-RU") + "×" : "∞";
+
+// Форматирование значений для input-полей (с разделителями разрядов)
+const fmtInput = (n) => Number(n).toLocaleString("ru-RU", { maximumFractionDigits: 4 });
+// Парсер чисел из ввода: убирает пробелы (включая неразрывный), меняет запятую на точку
+const parseInput = (s) => parseFloat(String(s).replace(/[\s ]/g, "").replace(",", "."));
+
+// ===== Расчёт по каналу =====
+function computeChannel(ch, units, marketing, cost) {
+  const priceBefore = ch.priceBefore;
+  const priceAfter = priceBefore * (1 - ch.sppPct / 100);
+  const commission = priceBefore * ch.commissionPct / 100;
+  const drr = priceBefore * ch.drrPct / 100;
+  const expenses = commission + ch.logistics + drr;
+  const marginBase = priceBefore - cost - expenses - ch.storage + ch.sppBonus;
+
+  // Учёт выкупа: дельта от базового %. В логистику уже зашиты возвраты при baseline.
+  const buyout = ch.buyoutPct / 100;
+  const buyoutBase = (ch.buyoutBase ?? ch.buyoutPct) / 100;
+  const currentRatio = buyout > 0 ? (1 - buyout) / buyout : 0;
+  const baseRatio = buyoutBase > 0 ? (1 - buyoutBase) / buyoutBase : 0;
+  const lossPerUnit = 2 * ch.logistics * (currentRatio - baseRatio);
+  const marginUnit = marginBase - lossPerUnit;
+
+  const marginPct = priceAfter > 0 ? (marginUnit / priceAfter) * 100 : 0;
+  const revenue = priceAfter * units;
+  const marginTotal = marginUnit * units;
+  const netProfit = marginTotal - marketing;
+  const romi = marketing > 0 ? marginTotal / marketing : (marginTotal > 0 ? Infinity : 0);
+  return { priceBefore, priceAfter, commission, drr, expenses, marginBase, lossPerUnit, marginUnit, marginPct, revenue, marginTotal, netProfit, romi, units, marketing, buyout };
+}
+
+function computeAll() {
+  const shareSum = channels.reduce((s, k) => s + state[k].share, 0);
+  const normShare = {};
+  channels.forEach((k) => { normShare[k] = shareSum > 0 ? state[k].share / shareSum : 0; });
+
+  const results = {};
+  channels.forEach((k) => {
+    const units = globals.volume * normShare[k];
+    const marketing = globals.budget * normShare[k];
+    results[k] = computeChannel(state[k], units, marketing, globals.cost);
+    results[k].normShare = normShare[k];
+  });
+
+  const totalRevenue = channels.reduce((s, k) => s + results[k].revenue, 0);
+  const totalMargin = channels.reduce((s, k) => s + results[k].marginTotal, 0);
+  const totalNet = totalMargin - globals.budget - globals.fixed;
+  const totalMarginPct = totalRevenue > 0 ? (totalMargin / totalRevenue) * 100 : 0;
+  const totalRomi = globals.budget > 0 ? totalMargin / globals.budget : (totalMargin > 0 ? Infinity : 0);
+
+  return { results, totals: { revenue: totalRevenue, margin: totalMargin, net: totalNet, marginPct: totalMarginPct, romi: totalRomi }, shareSum };
+}
+
+// ===== Рендер карточки канала =====
+function cardHTML(key) {
+  const ch = state[key];
+  return `
+  <div class="bg-white rounded-xl border border-gray-200 p-4" data-channel="${key}">
+    <div class="flex items-baseline justify-between mb-3">
+      <div class="text-lg font-semibold">${ch.name}</div>
+      <div class="text-xs text-gray-400">${key.toUpperCase()}</div>
+    </div>
+
+    <!-- Доля продаж -->
+    <div class="mb-3">
+      <div class="flex justify-between text-sm mb-1">
+        <span class="text-gray-600">Доля продаж, %</span>
+        <input type="text" inputmode="decimal" class="w-24 text-right border border-gray-200 rounded px-2 py-0.5 text-sm num" data-field="share" value="${fmtInput(ch.share)}">
+      </div>
+      <input type="range" class="w-full" data-field="share" min="0" max="100" step="0.1" value="${ch.share}">
+    </div>
+
+    <!-- Цена -->
+    <div class="mb-3">
+      <div class="flex justify-between text-sm mb-1">
+        <span class="text-gray-600">Цена до СПП, ₽</span>
+        <input type="text" inputmode="decimal" class="w-32 text-right border border-gray-200 rounded px-2 py-0.5 text-sm num" data-field="priceBefore" value="${fmtInput(ch.priceBefore)}">
+      </div>
+      <input type="range" class="w-full" data-field="priceBefore" min="15000" max="80000" step="100" value="${ch.priceBefore}">
+    </div>
+
+    <!-- % выкупа -->
+    <div class="mb-3">
+      <div class="flex justify-between text-sm mb-1">
+        <span class="text-gray-600">% выкупа</span>
+        <input type="text" inputmode="decimal" class="w-24 text-right border border-gray-200 rounded px-2 py-0.5 text-sm num" data-field="buyoutPct" value="${fmtInput(ch.buyoutPct)}">
+      </div>
+      <input type="range" class="w-full" data-field="buyoutPct" min="50" max="100" step="0.5" value="${ch.buyoutPct}">
+    </div>
+
+    <!-- Прочие параметры -->
+    <details class="mt-3 mb-3">
+      <summary class="text-xs text-gray-500 hover:text-gray-700 select-none">Прочие параметры ▾</summary>
+      <div class="mt-2 grid grid-cols-2 gap-2 text-sm">
+        ${[
+          ["sppPct", "СПП, %"],
+          ["commissionPct", "Комиссия, %"],
+          ["logistics", "Логистика, ₽"],
+          ["drrPct", "ДРР, %"],
+          ["storage", "Хранение, ₽"],
+          ["sppBonus", "Премия за СПП, ₽"],
+        ].map(([f, label]) => `
+          <label class="flex justify-between items-center gap-2">
+            <span class="text-gray-500 text-xs">${label}</span>
+            <input type="text" inputmode="decimal" class="w-24 text-right border border-gray-200 rounded px-2 py-0.5 text-sm num" data-field="${f}" value="${fmtInput(ch[f])}">
+          </label>
+        `).join("")}
+      </div>
+    </details>
+
+    <!-- Расчёт -->
+    <div class="border-t border-gray-100 pt-3 grid grid-cols-2 gap-y-1 text-sm num">
+      <div class="text-gray-500">Цена с СПП</div><div class="text-right" data-out="priceAfter"></div>
+      <div class="text-gray-500">Расходы (комис.+лог.+ДРР)</div><div class="text-right" data-out="expenses"></div>
+      <div class="text-gray-500">Маржа база</div><div class="text-right" data-out="marginBase"></div>
+      <div class="text-gray-500">Δ от выкупа (vs база)</div><div class="text-right" data-out="lossPerUnit"></div>
+      <div class="text-gray-500">Маржа с ед. (эфф.)</div><div class="text-right font-semibold" data-out="marginUnit"></div>
+      <div class="text-gray-500">Маржа, %</div><div class="text-right" data-out="marginPct"></div>
+      <div class="text-gray-500 pt-1 border-t border-gray-50 col-span-2 text-xs uppercase tracking-wide mt-1">С учётом доли</div>
+      <div class="text-gray-500">Штуки канала (выкуп.)</div><div class="text-right" data-out="units"></div>
+      <div class="text-gray-500">Выручка с СПП</div><div class="text-right" data-out="revenue"></div>
+      <div class="text-gray-500">Маржа канала</div><div class="text-right" data-out="marginTotal"></div>
+      <div class="text-gray-500">Маркетинг канала</div><div class="text-right" data-out="marketing"></div>
+      <div class="text-gray-500">Чистая прибыль канала</div><div class="text-right font-semibold" data-out="netProfit"></div>
+      <div class="text-gray-500">ROMI</div><div class="text-right" data-out="romi"></div>
+    </div>
+  </div>`;
+}
+
+function renderCards() {
+  document.getElementById("cards").innerHTML = channels.map(cardHTML).join("");
+  channels.forEach((key) => {
+    const card = document.querySelector(`[data-channel="${key}"]`);
+    card.querySelectorAll("input").forEach((input) => {
+      input.addEventListener("input", (e) => onChannelInput(key, e.target));
+      if (input.type === "text") {
+        input.addEventListener("blur", (e) => {
+          const v = parseInput(e.target.value);
+          if (!isNaN(v)) e.target.value = fmtInput(v);
+        });
+        input.addEventListener("focus", (e) => e.target.select());
+      }
+    });
+  });
+}
+
+function onChannelInput(key, target) {
+  const field = target.dataset.field;
+  if (!field) return;
+  const v = target.type === "range" ? parseFloat(target.value) : parseInput(target.value);
+  if (isNaN(v)) return;
+  state[key][field] = v;
+  const card = document.querySelector(`[data-channel="${key}"]`);
+  card.querySelectorAll(`input[data-field="${field}"]`).forEach((el) => {
+    if (el === target) return;
+    el.value = el.type === "range" ? v : fmtInput(v);
+  });
+  recomputeAll();
+}
+
+// ===== Глобальные input'ы =====
+function bindGlobals() {
+  const pairs = [
+    ["volumeRange", "volumeNum", "volume"],
+    ["budgetRange", "budgetNum", "budget"],
+    ["costRange", "costNum", "cost"],
+    ["fixedRange", "fixedNum", "fixed"],
+  ];
+  pairs.forEach(([r, n, k]) => {
+    const range = document.getElementById(r);
+    const num = document.getElementById(n);
+    const sync = (src) => {
+      const v = src === range ? parseFloat(src.value) : parseInput(src.value);
+      if (isNaN(v)) return;
+      globals[k] = v;
+      if (src === range) num.value = fmtInput(v); else range.value = v;
+      recomputeAll();
+    };
+    range.addEventListener("input", () => sync(range));
+    num.addEventListener("input", () => sync(num));
+    num.addEventListener("blur", () => {
+      const v = parseInput(num.value);
+      if (!isNaN(v)) num.value = fmtInput(v);
+    });
+    num.addEventListener("focus", () => num.select());
+  });
+}
+
+function recomputeAll() {
+  const { results, totals, shareSum } = computeAll();
+
+  // Предупреждение про сумму долей
+  const warn = document.getElementById("shareWarn");
+  if (Math.abs(shareSum - 100) > 0.05) {
+    warn.classList.remove("hidden");
+    warn.textContent = `Сумма долей = ${shareSum.toFixed(2)}% (не 100%). Расчёт идёт по нормализованным долям.`;
+  } else {
+    warn.classList.add("hidden");
+  }
+
+  // Общие расходы (readonly поле)
+  document.getElementById("totalExpensesNum").value = fmtInput(globals.budget + globals.fixed);
+
+  // Сводные показатели
+  const netEl = document.getElementById("totalNet");
+  netEl.textContent = fmtMoney(totals.net);
+  netEl.classList.toggle("text-red-700", totals.net < 0);
+  netEl.classList.toggle("text-green-800", totals.net >= 0);
+  document.getElementById("totalNetSub").textContent =
+    `Маржа ${fmtMoney(totals.margin)} − маркетинг ${fmtMoney(globals.budget)} − пост. ${fmtMoney(globals.fixed)}`;
+  document.getElementById("totalMargin").textContent = fmtMoney(totals.margin);
+  document.getElementById("totalMarginPct").textContent = fmtPct(totals.marginPct);
+  document.getElementById("totalRomi").textContent = fmtRomi(totals.romi);
+
+  // Карточки
+  channels.forEach((key) => {
+    const r = results[key];
+    const card = document.querySelector(`[data-channel="${key}"]`);
+    card.querySelector('[data-out="priceAfter"]').textContent = fmtMoney(r.priceAfter);
+    card.querySelector('[data-out="expenses"]').textContent = fmtMoney(r.expenses);
+    card.querySelector('[data-out="marginBase"]').textContent = fmtMoney(r.marginBase);
+    const lossEl = card.querySelector('[data-out="lossPerUnit"]');
+    if (Math.abs(r.lossPerUnit) < 0.5) {
+      lossEl.textContent = "0 ₽";
+      lossEl.className = "text-right text-gray-400";
+    } else if (r.lossPerUnit > 0) {
+      lossEl.textContent = "−" + fmtMoney(r.lossPerUnit);
+      lossEl.className = "text-right text-red-600";
+    } else {
+      lossEl.textContent = "+" + fmtMoney(-r.lossPerUnit);
+      lossEl.className = "text-right text-green-700";
+    }
+    card.querySelector('[data-out="marginUnit"]').textContent = fmtMoney(r.marginUnit);
+    card.querySelector('[data-out="marginPct"]').textContent = fmtPct(r.marginPct);
+    card.querySelector('[data-out="units"]').textContent = fmt(r.units) + " шт";
+    card.querySelector('[data-out="revenue"]').textContent = fmtMoney(r.revenue);
+    card.querySelector('[data-out="marginTotal"]').textContent = fmtMoney(r.marginTotal);
+    card.querySelector('[data-out="marketing"]').textContent = fmtMoney(r.marketing);
+    const netCh = card.querySelector('[data-out="netProfit"]');
+    netCh.textContent = fmtMoney(r.netProfit);
+    netCh.classList.toggle("text-green-700", r.netProfit >= 0);
+    netCh.classList.toggle("text-red-600", r.netProfit < 0);
+    card.querySelector('[data-out="romi"]').textContent = fmtRomi(r.romi);
+  });
+
+  // Лидеры
+  const byNet = [...channels].sort((a, b) => results[b].netProfit - results[a].netProfit);
+  const byUnit = [...channels].sort((a, b) => results[b].marginUnit - results[a].marginUnit);
+  const byPct = [...channels].sort((a, b) => results[b].marginPct - results[a].marginPct);
+
+  document.getElementById("bestNetName").textContent = state[byNet[0]].name;
+  document.getElementById("bestNetValue").textContent = fmtMoney(results[byNet[0]].netProfit);
+  document.getElementById("bestUnitName").textContent = state[byUnit[0]].name;
+  document.getElementById("bestUnitValue").textContent = fmtMoney(results[byUnit[0]].marginUnit);
+  document.getElementById("bestPctName").textContent = state[byPct[0]].name;
+  document.getElementById("bestPctValue").textContent = fmtPct(results[byPct[0]].marginPct);
+
+  channels.forEach((key) => {
+    const card = document.querySelector(`[data-channel="${key}"]`);
+    card.classList.toggle("winner", key === byNet[0]);
+  });
+
+  // Сводная таблица
+  const rows = [
+    ["Доля продаж", "share", (r, k) => fmtPct(results[k].normShare * 100), () => "100,00 %"],
+    ["% выкупа", "buyoutPct", (r, k) => fmtPct(state[k].buyoutPct), null],
+    ["Цена до СПП", "priceBefore", (r) => fmtMoney(r.priceBefore), null],
+    ["Цена с СПП", "priceAfter", (r) => fmtMoney(r.priceAfter), null],
+    ["Маржа база", "marginBase", (r) => fmtMoney(r.marginBase), null],
+    ["Δ от выкупа", "lossPerUnit", (r) => {
+      if (Math.abs(r.lossPerUnit) < 0.5) return "0 ₽";
+      return r.lossPerUnit > 0 ? "−" + fmtMoney(r.lossPerUnit) : "+" + fmtMoney(-r.lossPerUnit);
+    }, null],
+    ["Маржа с ед. (эфф.)", "marginUnit", (r) => fmtMoney(r.marginUnit), null],
+    ["Маржа, %", "marginPct", (r) => fmtPct(r.marginPct), () => fmtPct(totals.marginPct)],
+    ["Штуки канала", "units", (r) => fmt(r.units), () => fmt(globals.volume) + " шт"],
+    ["Выручка", "revenue", (r) => fmtMoney(r.revenue), () => fmtMoney(totals.revenue)],
+    ["Маржа канала", "marginTotal", (r) => fmtMoney(r.marginTotal), () => fmtMoney(totals.margin)],
+    ["Маркетинг канала", "marketing", (r) => fmtMoney(r.marketing), () => fmtMoney(globals.budget)],
+    ["Постоянные расходы", "_fixed", () => "—", () => fmtMoney(globals.fixed)],
+    ["Чистая прибыль", "netProfit", (r) => fmtMoney(r.netProfit), () => fmtMoney(totals.net)],
+    ["ROMI", "romi", (r) => fmtRomi(r.romi), () => fmtRomi(totals.romi)],
+  ];
+
+  const highlightMax = new Set(["marginUnit", "marginPct", "netProfit", "romi", "marginTotal"]);
+
+  document.getElementById("summary").innerHTML = rows.map(([label, key, fnCell, fnTotal]) => {
+    const vals = channels.map((k) => {
+      if (key === "share") return results[k].normShare * 100;
+      if (key === "buyoutPct") return state[k].buyoutPct;
+      if (key === "units") return results[k].units;
+      if (key === "_fixed") return 0;
+      return results[k][key] ?? 0;
+    });
+    const max = Math.max(...vals);
+    const hl = highlightMax.has(key);
+    return `<tr class="border-t border-gray-100">
+      <td class="p-3 text-gray-600">${label}</td>
+      ${channels.map((k, i) => {
+        const isMax = hl && vals[i] === max && isFinite(max) && max !== 0;
+        return `<td class="p-3 text-right ${isMax ? 'font-semibold text-green-700' : ''}">${fnCell(results[k], k)}</td>`;
+      }).join("")}
+      <td class="p-3 text-right bg-gray-50 font-medium">${fnTotal ? fnTotal() : '—'}</td>
+    </tr>`;
+  }).join("");
+}
+
+document.getElementById("reset").addEventListener("click", () => {
+  state = JSON.parse(JSON.stringify(DEFAULTS));
+  globals = { ...GLOBALS_DEFAULT };
+  const map = { volume: ["volumeRange", "volumeNum"], budget: ["budgetRange", "budgetNum"], cost: ["costRange", "costNum"], fixed: ["fixedRange", "fixedNum"] };
+  ["volume", "budget", "cost", "fixed"].forEach((k) => {
+    document.getElementById(map[k][0]).value = globals[k];
+    document.getElementById(map[k][1]).value = fmtInput(globals[k]);
+  });
+  renderCards();
+  recomputeAll();
+});
+
+bindGlobals();
+renderCards();
+recomputeAll();
+</script>
+</body>
+</html>
