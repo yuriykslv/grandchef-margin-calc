@@ -73,7 +73,7 @@
   </section>
 
   <!-- Сводный результат -->
-  <section class="mb-6 grid grid-cols-2 md:grid-cols-4 gap-3">
+  <section class="mb-6 grid grid-cols-2 md:grid-cols-5 gap-3">
     <div class="bg-green-50 border border-green-200 rounded-xl p-4">
       <div class="text-xs uppercase tracking-wide text-green-700">Чистая прибыль, ₽/мес</div>
       <div id="totalNet" class="mt-1 text-2xl font-semibold num text-green-800"></div>
@@ -93,6 +93,11 @@
       <div class="text-xs uppercase tracking-wide text-gray-500">ROMI</div>
       <div id="totalRomi" class="mt-1 text-2xl font-semibold num"></div>
       <div class="text-xs text-gray-500 mt-1">Маржа ÷ Маркетинг</div>
+    </div>
+    <div class="bg-white border border-gray-200 rounded-xl p-4">
+      <div class="text-xs uppercase tracking-wide text-gray-500">Стоимость заказа (CPO)</div>
+      <div id="totalCpo" class="mt-1 text-2xl font-semibold num"></div>
+      <div class="text-xs text-gray-500 mt-1">Маркетинг ÷ Заказы</div>
     </div>
   </section>
 
@@ -203,7 +208,10 @@ function computeChannel(ch, units, marketing, cost) {
   const marginTotal = marginUnit * units;
   const netProfit = marginTotal - marketing;
   const romi = marketing > 0 ? marginTotal / marketing : (marginTotal > 0 ? Infinity : 0);
-  return { priceBefore, priceAfter, commission, drr, expenses, marginBase, lossPerUnit, marginUnit, marginPct, revenue, marginTotal, netProfit, romi, units, marketing, buyout };
+  // Заказы канала = выкупленные штуки / % выкупа. CPO = маркетинг / заказы.
+  const orders = buyout > 0 ? units / buyout : 0;
+  const cpo = orders > 0 ? marketing / orders : 0;
+  return { priceBefore, priceAfter, commission, drr, expenses, marginBase, lossPerUnit, marginUnit, marginPct, revenue, marginTotal, netProfit, romi, units, marketing, buyout, orders, cpo };
 }
 
 function computeAll() {
@@ -221,11 +229,13 @@ function computeAll() {
 
   const totalRevenue = channels.reduce((s, k) => s + results[k].revenue, 0);
   const totalMargin = channels.reduce((s, k) => s + results[k].marginTotal, 0);
+  const totalOrders = channels.reduce((s, k) => s + results[k].orders, 0);
   const totalNet = totalMargin - globals.budget - globals.fixed;
   const totalMarginPct = totalRevenue > 0 ? (totalMargin / totalRevenue) * 100 : 0;
   const totalRomi = globals.budget > 0 ? totalMargin / globals.budget : (totalMargin > 0 ? Infinity : 0);
+  const totalCpo = totalOrders > 0 ? globals.budget / totalOrders : 0;
 
-  return { results, totals: { revenue: totalRevenue, margin: totalMargin, net: totalNet, marginPct: totalMarginPct, romi: totalRomi }, shareSum };
+  return { results, totals: { revenue: totalRevenue, margin: totalMargin, net: totalNet, marginPct: totalMarginPct, romi: totalRomi, orders: totalOrders, cpo: totalCpo }, shareSum };
 }
 
 // ===== Рендер карточки канала =====
@@ -295,9 +305,11 @@ function cardHTML(key) {
       <div class="text-gray-500">Маржа, %</div><div class="text-right" data-out="marginPct"></div>
       <div class="text-gray-500 pt-1 border-t border-gray-50 col-span-2 text-xs uppercase tracking-wide mt-1">С учётом доли</div>
       <div class="text-gray-500">Штуки канала (выкуп.)</div><div class="text-right" data-out="units"></div>
+      <div class="text-gray-500">Заказы канала</div><div class="text-right" data-out="orders"></div>
       <div class="text-gray-500">Выручка с СПП</div><div class="text-right" data-out="revenue"></div>
       <div class="text-gray-500">Маржа канала</div><div class="text-right" data-out="marginTotal"></div>
       <div class="text-gray-500">Маркетинг канала</div><div class="text-right" data-out="marketing"></div>
+      <div class="text-gray-500">Стоимость заказа (CPO)</div><div class="text-right" data-out="cpo"></div>
       <div class="text-gray-500">Чистая прибыль канала</div><div class="text-right font-semibold" data-out="netProfit"></div>
       <div class="text-gray-500">ROMI</div><div class="text-right" data-out="romi"></div>
     </div>
@@ -388,6 +400,7 @@ function recomputeAll() {
   document.getElementById("totalMargin").textContent = fmtMoney(totals.margin);
   document.getElementById("totalMarginPct").textContent = fmtPct(totals.marginPct);
   document.getElementById("totalRomi").textContent = fmtRomi(totals.romi);
+  document.getElementById("totalCpo").textContent = totals.cpo > 0 ? fmtMoney(totals.cpo) : "—";
 
   // Карточки
   channels.forEach((key) => {
@@ -410,9 +423,11 @@ function recomputeAll() {
     card.querySelector('[data-out="marginUnit"]').textContent = fmtMoney(r.marginUnit);
     card.querySelector('[data-out="marginPct"]').textContent = fmtPct(r.marginPct);
     card.querySelector('[data-out="units"]').textContent = fmt(r.units) + " шт";
+    card.querySelector('[data-out="orders"]').textContent = fmt(r.orders) + " шт";
     card.querySelector('[data-out="revenue"]').textContent = fmtMoney(r.revenue);
     card.querySelector('[data-out="marginTotal"]').textContent = fmtMoney(r.marginTotal);
     card.querySelector('[data-out="marketing"]').textContent = fmtMoney(r.marketing);
+    card.querySelector('[data-out="cpo"]').textContent = r.cpo > 0 ? fmtMoney(r.cpo) : "—";
     const netCh = card.querySelector('[data-out="netProfit"]');
     netCh.textContent = fmtMoney(r.netProfit);
     netCh.classList.toggle("text-green-700", r.netProfit >= 0);
@@ -451,9 +466,11 @@ function recomputeAll() {
     ["Маржа с ед. (эфф.)", "marginUnit", (r) => fmtMoney(r.marginUnit), null],
     ["Маржа, %", "marginPct", (r) => fmtPct(r.marginPct), () => fmtPct(totals.marginPct)],
     ["Штуки канала", "units", (r) => fmt(r.units), () => fmt(globals.volume) + " шт"],
+    ["Заказы канала", "orders", (r) => fmt(r.orders), () => fmt(totals.orders) + " шт"],
     ["Выручка", "revenue", (r) => fmtMoney(r.revenue), () => fmtMoney(totals.revenue)],
     ["Маржа канала", "marginTotal", (r) => fmtMoney(r.marginTotal), () => fmtMoney(totals.margin)],
     ["Маркетинг канала", "marketing", (r) => fmtMoney(r.marketing), () => fmtMoney(globals.budget)],
+    ["Стоимость заказа (CPO)", "cpo", (r) => r.cpo > 0 ? fmtMoney(r.cpo) : "—", () => totals.cpo > 0 ? fmtMoney(totals.cpo) : "—"],
     ["Постоянные расходы", "_fixed", () => "—", () => fmtMoney(globals.fixed)],
     ["Чистая прибыль", "netProfit", (r) => fmtMoney(r.netProfit), () => fmtMoney(totals.net)],
     ["ROMI", "romi", (r) => fmtRomi(r.romi), () => fmtRomi(totals.romi)],
